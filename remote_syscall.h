@@ -8,75 +8,6 @@
 
 namespace remote_syscall
 {
-    /*
-    mov [rsp], rax
-    mov [rsp-0x8], rbx
-    mov [rsp-0x10], rcx
-    mov [rsp-0x18], rdx
-    mov [rsp-0x20], rsi
-    mov [rsp-0x28], rdi
-    mov [rsp-0x30], r8
-    mov [rsp-0x38], r9
-    mov [rsp-0x40], r10
-    mov [rsp-0x48], r12
-    mov [rsp-0x50], r13
-    sub rsp, 0x4000
-    mov r12, [rsp] # zerostep_args::prologue_shellcode # r11 reversed for rflags, amd64 SystemV ABI
-    mov r13, [rsp+0x8] # zerostep_args::down_stack
-    sub rsp, r13
-
-    mov rdi, [rsp+0x8] # rsyscall_args::arg0
-    mov rsi, [rsp+0x10] # rsyscall_args::arg1
-    mov rdx, [rsp+0x18] # rsyscall_args::arg2
-    mov r10, [rsp+0x20] # rsyscall_args::arg3
-    mov r8, [rsp+0x28] # rsyscall_args::arg4
-    mov r9, [rsp+0x30] #rsyscall_args::arg5
-    mov rax, [rsp] #rsyscall_args::syscall_nr
-    syscall
-    mov [rsp+0x38], rax # shell_args::syscall_ret
-
-    lea rdi, [rsp+0x42] # shell_args::path
-    mov rsi, 2
-    mov rax, 2        # syscall open
-    syscall
-    cmp rax, 0
-    jg 18
-    mov rdi, 0
-    mov rax, 60
-    syscall
-    mov r10, rax # save fd
-
-    mov rdi, r10
-    mov rsi, r12 # zerostep_args::prologue_shellcode
-    xor rdx, rdx
-    mov rax, 8
-    syscall
-
-    mov rdi, r10
-    lea rsi, [rsp+0x40] # shell_args::jmp_inifinite
-    mov rdx, 2
-    mov rax, 1       # syscall write
-    syscall
-
-    mov rdi, r10
-    mov rax, 3
-    syscall
-
-    add rsp, r13
-    add rsp, 0x4000
-    mov r13, [rsp-0x50]
-    mov r12, [rsp-0x48]
-    mov r10, [rsp-0x40]
-    mov r9, [rsp-0x38]
-    mov r8, [rsp-0x30]
-    mov rdi, [rsp-0x28]
-    mov rsi, [rsp-0x20]
-    mov rdx, [rsp-0x18]
-    mov rcx, [rsp-0x10]
-    mov rbx, [rsp-0x8]
-    mov rax, [rsp]
-    jmp [rsp-0x4000] #zerostep_args::prologue_shellcode
-    */
 
     unsigned char code[] = {
         "\x48\x89\x04\x24"             // mov [rsp], rax
@@ -92,8 +23,8 @@ namespace remote_syscall
         "\x4c\x89\x64\x24\xb0"         //     mov [rsp-0x50], r12
         "\x4c\x89\x6c\x24\xa8"         //     mov [rsp-0x58], r13
         "\x48\x81\xec\x00\x40\x00\x00" //     sub rsp, 0x4000
-        "\x4c\x8b\x24\x24"             //     mov r12, [rsp] # zerostep_args::prologue_shellcode # r11 reversed for rflags, amd64 SystemV ABI
-        "\x4c\x8b\x6c\x24\x08"         //     mov r13, [rsp+0x8] # zerostep_args::down_stack
+        "\x4c\x8b\x24\x24"             //     mov r12, [rsp] # step_args::prologue_shellcode # r11 reversed for rflags, amd64 SystemV ABI
+        "\x4c\x8b\x6c\x24\x08"         //     mov r13, [rsp+0x8] # step_args::down_stack
         "\x4c\x29\xec"                 //     sub rsp, r13
         "\x48\x8b\x7c\x24\x08"         //     mov rdi, [rsp+0x8] # rsyscall_args::arg0
         "\x48\x8b\x74\x24\x10"         //     mov rsi, [rsp+0x10] # rsyscall_args::arg1
@@ -115,7 +46,7 @@ namespace remote_syscall
         "\x0f\x05"                     //     syscall
         "\x49\x89\xc2"                 //     mov r10, rax # save fd
         "\x4c\x89\xd7"                 //     mov rdi, r10
-        "\x4c\x89\xe6"                 //     mov rsi, r12 # zerostep_args::prologue_shellcode
+        "\x4c\x89\xe6"                 //     mov rsi, r12 # step_args::prologue_shellcode
         "\x48\x31\xd2"                 //     xor rdx, rdx
         "\x48\xc7\xc0\x08\x00\x00\x00" //     mov rax, 8
         "\x0f\x05"                     //     syscall
@@ -141,7 +72,7 @@ namespace remote_syscall
         "\x48\x8b\x4c\x24\xf0"         //     mov rcx, [rsp-0x10]
         "\x48\x8b\x5c\x24\xf8"         //     mov rbx, [rsp-0x8]
         "\x48\x8b\x04\x24"             //     mov rax, [rsp]
-        "\xff\xa4\x24\x00\xc0\xff\xff" //     jmp [rsp-0x4000] #zerostep_args::prologue_shellcode
+        "\xff\xa4\x24\x00\xc0\xff\xff" //     jmp [rsp-0x4000] #step_args::prologue_shellcode
     };
 
     namespace detail
@@ -262,7 +193,7 @@ namespace remote_syscall
             std::uint8_t args_buffer[N];
         };
 
-        struct zerostep_args
+        struct step_args
         {
             unsigned long prologue_shellcode; // 0x0
             unsigned long down_stack;         // 0x8
@@ -384,7 +315,7 @@ namespace remote_syscall
         template <std::size_t N>
         long patch_process_and_execute(int pid,
                                        char *path_syscall, pair_rsp_rip &proc_syscall,
-                                       const std::uintptr_t stack_zs_redzone, const zerostep_args &zs_args,
+                                       const std::uintptr_t stack_zs_redzone, const step_args &zs_args,
                                        std::uintptr_t common_args_address, rsyscall_args<N> &args)
         {
             int fd_syscall;
@@ -484,7 +415,7 @@ namespace remote_syscall
         constexpr int NOT_INITIALIZED = -1000;
         constexpr auto PACK_SIZE = sizeof(detail::packed_args<_Args...>);
         detail::rsyscall_args<PACK_SIZE> rsyscall_args{};
-        detail::zerostep_args zs_args;
+        detail::step_args zs_args;
         constexpr auto ARGS_SIZE = sizeof(rsyscall_args);
 
         char path_syscall[256]{};
