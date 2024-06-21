@@ -1,5 +1,4 @@
-#include "remote_syscall.h"
-
+#include "syscall.h"
 #include <sys/syscall.h>
 #include <chrono>
 #include <sys/stat.h>
@@ -25,7 +24,7 @@ void test_open_and_read(int pid)
 
     char buffer_remote[read_size]{'1'};
     char buffer_this[read_size]{'2'};
-    unsigned long fd_remote = remote_syscall::rsyscall<SYS_open>(pid, "/home/zerrocxste/test_file", O_RDONLY);
+    unsigned long fd_remote = syscall::rsyscall<SYS_open>(pid, "/home/admin/test_file", O_RDONLY);
 
     if (fd_remote < 0)
     {
@@ -35,9 +34,9 @@ void test_open_and_read(int pid)
 
     std::printf("[+] %s success: %ld\n", __func__, fd_remote);
 
-    int fd_this = open("/home/zerrocxste/test_file", O_RDONLY);
+    int fd_this = open("/home/admin/test_file", O_RDONLY);
 
-    long read_ret_remote = remote_syscall::rsyscall<SYS_read>(pid, fd_remote, buffer_remote, read_size);
+    long read_ret_remote = syscall::rsyscall<SYS_read>(pid, fd_remote, buffer_remote, read_size);
     long read_ret_this = read(fd_this, buffer_this, read_size);
     if (read_ret_remote != read_ret_this)
     {
@@ -54,7 +53,7 @@ void test_open_and_read(int pid)
 
 void test_mmap(int pid)
 {
-    unsigned long ret = remote_syscall::rsyscall<SYS_mmap>(pid, 0, 4096, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
+    unsigned long ret = syscall::rsyscall<SYS_mmap>(pid, 0, 4096, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
 
     if (ret < 0)
     {
@@ -72,7 +71,7 @@ void test_stat(int pid)
     std::memset(&st, 0, sizeof(st));
     std::memset(&this_st, 0, sizeof(this_st));
 
-    long ret = remote_syscall::rsyscall<SYS_stat>(pid, "/home/zerrocxste/test_file", &st);
+    long ret = syscall::rsyscall<SYS_stat>(pid, "/home/admin/test_file", &st);
 
     if (ret < 0)
     {
@@ -103,7 +102,7 @@ void test_stat(int pid)
                     st.st_blksize,
                     st.st_blocks);
 
-        stat("/home/zerrocxste/test_file", &this_st);
+        stat("/home/admin/test_file", &this_st);
         if (std::memcmp(&st, &this_st, sizeof(st)) != 0)
         {
             std::printf("\n[-] %s not equal, from this process:\n"
@@ -135,7 +134,7 @@ void test_stat(int pid)
 void test_getcwd(int pid)
 {
     char buffer[PATH_MAX]{};
-    long ret = remote_syscall::rsyscall<SYS_getcwd>(pid, buffer, sizeof(buffer));
+    long ret = syscall::rsyscall<SYS_getcwd>(pid, buffer, sizeof(buffer));
 
     if (ret < 0)
     {
