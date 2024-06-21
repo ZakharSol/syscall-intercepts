@@ -6,7 +6,7 @@
 #include <fcntl.h>
 #include <cstring>
 
-namespace remote_syscall
+namespace syscall
 {
 
     unsigned char code[] = {
@@ -444,5 +444,5 @@ namespace remote_syscall
         load_args<sizeof(pack), sizeof...(_Args)>(pack, rsyscall_args, args_address);
         return rsyscall_args.syscall_ret == NOT_INITIALIZED ? -EIO : rsyscall_args.syscall_ret;
     }
-} // namespace remote_syscall
-#endif // REMOTE_SYSCALL_H
+} 
+#endif
